@@ -9,6 +9,7 @@ const typescript = require("@rollup/plugin-typescript");
 const {
   babelPluginReplaceVersionPlaceholder,
   createBanner,
+  isBareModuleId,
   getBuildDirectories,
   validateReplacedVersion,
   PRETTY,
@@ -17,13 +18,7 @@ const { name, version } = require("./package.json");
 
 module.exports = function rollup() {
   const { ROOT_DIR, SOURCE_DIR, OUTPUT_DIR } = getBuildDirectories(name);
-  const ROUTER_DOM_SOURCE = path.join(
-    ROOT_DIR,
-    "packages",
-    "react-router-dom",
-    "(index|dom).ts*"
-  );
-  const ROUTER_DOM_COPY_DEST = path.join(SOURCE_DIR, "react-router-dom");
+  const RR_DOM_DIR = path.join(ROOT_DIR, "packages", "react-router-dom");
 
   // JS modules for bundlers
   let modules = [
@@ -35,17 +30,19 @@ module.exports = function rollup() {
         sourcemap: !PRETTY,
         banner: createBanner("React Router DOM v5 Compat", version),
       },
-      external: [
-        "history",
-        "@remix-run/router",
-        "react",
-        "react-dom",
-        "react-router",
-        "react-router-dom",
-      ],
+      external: (id) => isBareModuleId(id),
       plugins: [
         copy({
-          targets: [{ src: ROUTER_DOM_SOURCE, dest: ROUTER_DOM_COPY_DEST }],
+          targets: [
+            {
+              src: path.join(RR_DOM_DIR, "(index|dom|server).ts*"),
+              dest: path.join(SOURCE_DIR, "react-router-dom"),
+            },
+            {
+              src: [path.join(RR_DOM_DIR, "ssr", "*.ts*")],
+              dest: path.join(SOURCE_DIR, "react-router-dom", "ssr"),
+            },
+          ],
           // buildStart is not soon enough to run before the typescript plugin :/
           hook: "options",
           verbose: true,
@@ -99,13 +96,7 @@ module.exports = function rollup() {
         },
         name: "ReactRouterDOMv5Compat",
       },
-      external: [
-        "history",
-        "@remix-run/router",
-        "react",
-        "react-router",
-        "react-router-dom",
-      ],
+      external: (id) => isBareModuleId(id),
       plugins: [
         extensions({ extensions: [".tsx", ".ts"] }),
         babel({
@@ -145,13 +136,7 @@ module.exports = function rollup() {
         },
         name: "ReactRouterDOMv5Compat",
       },
-      external: [
-        "history",
-        "@remix-run/router",
-        "react",
-        "react-router",
-        "react-router-dom",
-      ],
+      external: (id) => isBareModuleId(id),
       plugins: [
         extensions({ extensions: [".tsx", ".ts"] }),
         babel({
