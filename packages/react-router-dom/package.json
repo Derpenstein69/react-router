@@ -23,10 +23,13 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "dependencies": {
-    "@remix-run/router": "1.15.3",
-    "react-router": "6.22.3"
+    "@remix-run/router": "workspace:*",
+    "@react-router/server-runtime": "workspace:*",
+    "react-router": "workspace:*",
+    "turbo-stream": "^2.0.0"
   },
   "devDependencies": {
+    "@react-router/testing": "workspace:*",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

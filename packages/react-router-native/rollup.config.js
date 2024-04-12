@@ -5,13 +5,14 @@ const prettier = require("rollup-plugin-prettier");
 const typescript = require("@rollup/plugin-typescript");
 const {
   createBanner,
+  isBareModuleId,
   getBuildDirectories,
   PRETTY,
 } = require("../../rollup.utils");
 const { name, version } = require("./package.json");
 
 module.exports = function rollup() {
-  const { ROOT_DIR, SOURCE_DIR, OUTPUT_DIR } = getBuildDirectories(name);
+  const { SOURCE_DIR, OUTPUT_DIR } = getBuildDirectories(name);
 
   const modules = [
     {
@@ -22,16 +23,7 @@ module.exports = function rollup() {
         sourcemap: !PRETTY,
         banner: createBanner("React Router Native", version),
       },
-      external: [
-        "@babel/runtime/helpers/esm/extends",
-        "@babel/runtime/helpers/esm/objectWithoutPropertiesLoose",
-        "@ungap/url-search-params",
-        "history",
-        "react",
-        "react-native",
-        "react-router",
-        "@remix-run/router",
-      ],
+      external: (id) => isBareModuleId(id),
       plugins: [
         babel({
           babelHelpers: "bundled",
@@ -55,9 +47,7 @@ module.exports = function rollup() {
           noEmitOnError: true,
         }),
         copy({
-          targets: [
-            { src: path.join(ROOT_DIR, "LICENSE.md"), dest: SOURCE_DIR },
-          ],
+          targets: [{ src: "LICENSE.md", dest: SOURCE_DIR }],
           verbose: true,
         }),
       ].concat(PRETTY ? prettier({ parser: "babel" }) : []),

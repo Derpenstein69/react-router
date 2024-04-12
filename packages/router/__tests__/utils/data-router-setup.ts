@@ -1,4 +1,3 @@
-/* eslint-disable jest/valid-title */
 import type {
   AgnosticDataRouteObject,
   AgnosticRouteMatch,
@@ -23,6 +22,7 @@ import { invariant } from "../../history";
 import type {
   AgnosticIndexRouteObject,
   AgnosticNonIndexRouteObject,
+  DataStrategyFunction,
 } from "../../utils";
 import { stripBasename } from "../../utils";
 
@@ -33,7 +33,7 @@ import { isRedirect, tick } from "./utils";
 // by our test harness
 export type TestIndexRouteObject = Pick<
   AgnosticIndexRouteObject,
-  "id" | "index" | "path" | "shouldRevalidate"
+  "id" | "index" | "path" | "shouldRevalidate" | "handle"
 > & {
   lazy?: boolean;
   loader?: boolean;
@@ -43,7 +43,7 @@ export type TestIndexRouteObject = Pick<
 
 export type TestNonIndexRouteObject = Pick<
   AgnosticNonIndexRouteObject,
-  "id" | "index" | "path" | "shouldRevalidate"
+  "id" | "index" | "path" | "shouldRevalidate" | "handle"
 > & {
   lazy?: boolean;
   loader?: boolean;
@@ -142,6 +142,8 @@ type SetupOpts = {
   initialEntries?: InitialEntry[];
   initialIndex?: number;
   hydrationData?: HydrationState;
+  future?: FutureConfig;
+  dataStrategy?: DataStrategyFunction;
   future?: Partial<FutureConfig>;
 };
 
@@ -177,6 +179,7 @@ export function setup({
   initialIndex,
   hydrationData,
   future,
+  dataStrategy,
 }: SetupOpts) {
   let guid = 0;
   // Global "active" helpers, keyed by navType:guid:loaderOrAction:routeId.
@@ -234,7 +237,7 @@ export function setup({
         };
       }
       if (r.loader) {
-        enhancedRoute.loader = (args) => {
+        enhancedRoute.loader = (...args) => {
           let navigationId =
             activeLoaderType === "fetch"
               ? activeLoaderFetchId
@@ -242,13 +245,13 @@ export function setup({
           let helperKey = `${activeLoaderType}:${navigationId}:loader:${enhancedRoute.id}`;
           let helpers = activeHelpers.get(helperKey);
           invariant(helpers, `No helpers found for: ${helperKey}`);
-          helpers.stub(args);
-          helpers._signal = args.request.signal;
+          helpers.stub(...args);
+          helpers._signal = args[0].request.signal;
           return helpers.dfd.promise;
         };
       }
       if (r.action) {
-        enhancedRoute.action = (args) => {
+        enhancedRoute.action = (...args) => {
           let type = activeActionType;
           let navigationId =
             activeActionType === "fetch"
@@ -257,8 +260,8 @@ export function setup({
           let helperKey = `${activeActionType}:${navigationId}:action:${enhancedRoute.id}`;
           let helpers = activeHelpers.get(helperKey);
           invariant(helpers, `No helpers found for: ${helperKey}`);
-          helpers.stub(args);
-          helpers._signal = args.request.signal;
+          helpers.stub(...args);
+          helpers._signal = args[0].request.signal;
           return helpers.dfd.promise.then(
             (result) => {
               // After a successful non-redirect action, ensure we call the right
@@ -318,6 +321,7 @@ export function setup({
     hydrationData,
     future,
     window: testWindow,
+    unstable_dataStrategy: dataStrategy,
   }).initialize();
 
   function getRouteHelpers(
@@ -741,9 +745,7 @@ export function cleanup(_router?: Router) {
 
   // Cleanup any routers created using setup()
   if (router) {
-    // eslint-disable-next-line jest/no-standalone-expect
     expect(router._internalFetchControllers.size).toBe(0);
-    // eslint-disable-next-line jest/no-standalone-expect
     expect(router._internalActiveDeferreds.size).toBe(0);
   }
   router?.dispose();

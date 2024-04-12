@@ -7,9 +7,8 @@ const PRETTY = !!process.env.PRETTY;
 
 /**
  * Determine the relevant directories for a rollup build, relative to the
- * current working directory and taking LOCAL_BUILD_DIRECTORY into account
+ * root directory and taking LOCAL_BUILD_DIRECTORY into account
  *
- * ROOT_DIR     Root directory for the react-router repo
  * SOURCE_DIR   Source package directory we will read input files from
  * OUTPUT_DIR   Destination directory to write rollup output to
  *
@@ -17,18 +16,11 @@ const PRETTY = !!process.env.PRETTY;
  * @param {string} [folderName] folder name (i.e., router). Defaults to package name
  */
 function getBuildDirectories(packageName, folderName) {
-  let ROOT_DIR = __dirname;
   let SOURCE_DIR = folderName
-    ? path.join(__dirname, "packages", folderName)
-    : path.join(__dirname, "packages", ...packageName.split("/"));
+    ? path.posix.join("packages", folderName)
+    : path.posix.join("packages", ...packageName.split("/"));
 
-  // Update if we're not running from root
-  if (process.cwd() !== __dirname) {
-    ROOT_DIR = path.dirname(path.dirname(process.cwd()));
-    SOURCE_DIR = process.cwd();
-  }
-
-  let OUTPUT_DIR = path.join(SOURCE_DIR, "dist");
+  let OUTPUT_DIR = path.posix.join(SOURCE_DIR, "dist");
 
   if (process.env.LOCAL_BUILD_DIRECTORY) {
     try {
@@ -48,11 +40,11 @@ function getBuildDirectories(packageName, folderName) {
     }
   }
 
-  return { ROOT_DIR, SOURCE_DIR, OUTPUT_DIR };
+  return { SOURCE_DIR, OUTPUT_DIR };
 }
 
-function createBanner(packageName, version) {
-  return `/**
+function createBanner(packageName, version, { executable = false } = {}) {
+  let banner = `/**
  * ${packageName} v${version}
  *
  * Copyright (c) Remix Software Inc.
@@ -62,6 +54,7 @@ function createBanner(packageName, version) {
  *
  * @license MIT
  */`;
+  return executable ? "#!/usr/bin/env node\n" + banner : banner;
 }
 
 // Babel plugin to replace `const REACT_ROUTER_VERSION = "0.0.0";` with the
@@ -141,11 +134,41 @@ function validateReplacedVersion() {
   };
 }
 
+/**
+ * @param {string} id
+ */
+function isBareModuleId(id) {
+  return !id.startsWith(".") && !path.isAbsolute(id);
+}
+
+const remixBabelConfig = {
+  presets: [
+    ["@babel/preset-env", { targets: { node: "18" } }],
+    "@babel/preset-react",
+    "@babel/preset-typescript",
+  ],
+  plugins: [
+    "@babel/plugin-proposal-export-namespace-from",
+    "@babel/plugin-proposal-optional-chaining",
+    // Strip console.debug calls unless REACT_ROUTER_DEBUG=true
+    ...(process.env.REACT_ROUTER_DEBUG === "true"
+      ? []
+      : [
+          [
+            "transform-remove-console",
+            { exclude: ["error", "warn", "log", "info"] },
+          ],
+        ]),
+  ],
+};
+
 // rollup.config.js
 module.exports = {
   getBuildDirectories,
   createBanner,
   babelPluginReplaceVersionPlaceholder,
   validateReplacedVersion,
+  isBareModuleId,
+  remixBabelConfig,
   PRETTY,
 };
